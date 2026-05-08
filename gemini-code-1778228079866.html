@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Classic Word Search - 5000 Levels</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
+        #game-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-top: 20px; }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
+        #stats { margin-bottom: 15px; font-weight: bold; color: #34495e; }
+        #grid { display: grid; gap: 2px; background: #bdc3c7; border: 2px solid #2c3e50; cursor: pointer; user-select: none; }
+        .cell { width: 35px; height: 35px; background: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; }
+        .cell.selected { background: #3498db; color: white; }
+        .cell.found { background: #2ecc71; color: white; }
+        #word-list { margin-top: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+        .word-item { padding: 5px 10px; background: #ecf0f1; border-radius: 4px; text-align: center; font-weight: 600; }
+        .word-item.cut { text-decoration: line-through; opacity: 0.5; background: #d5dbdb; }
+        button { margin-top: 20px; padding: 10px 25px; background: #2c3e50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+        button:hover { background: #34495e; }
+    </style>
+</head>
+<body>
+
+    <h1>Classic Word Search</h1>
+    <div id="stats">Season: <span id="season">1</span> | Level: <span id="level">1</span></div>
+    
+    <div id="game-container">
+        <div id="grid"></div>
+        <div id="word-list"></div>
+    </div>
+
+    <button onclick="nextLevel()">Skip to Next Level</button>
+
+<script>
+    const wordBank = ["GALAXY", "PLANET", "ORBIT", "STARS", "COMET", "NEBULA", "METEOR", "SOLAR", "LUNAR", "VOID", "COSMOS", "ROCKET", "GRAVITY", "QUASAR", "PHOTON", "RADAR", "SIGNAL", "WAVELENGTH", "ISOTOPE", "KINETIC", "MOMENTUM", "ENTROPY", "QUARK", "FUSION", "PLASMA"];
+    let currentLevel = 1;
+    let gridSize = 10;
+    let wordsToFind = [];
+    let foundWords = [];
+    let isSelecting = false;
+    let selectedCells = [];
+
+    function initLevel() {
+        const season = Math.ceil(currentLevel / 1000);
+        document.getElementById('season').innerText = season;
+        document.getElementById('level').innerText = currentLevel;
+        
+        // Increase difficulty every level
+        gridSize = 10 + Math.floor(currentLevel / 50);
+        wordsToFind = [...wordBank].sort(() => 0.5 - Math.random()).slice(0, 10);
+        foundWords = [];
+        
+        createGrid();
+        renderWordList();
+    }
+
+    function createGrid() {
+        const gridElement = document.getElementById('grid');
+        gridElement.style.gridTemplateColumns = `repeat(${gridSize}, 35px)`;
+        gridElement.innerHTML = '';
+        
+        let matrix = Array(gridSize).fill().map(() => Array(gridSize).fill(''));
+
+        // Place words
+        wordsToFind.forEach(word => {
+            let placed = false;
+            while (!placed) {
+                let dir = Math.floor(Math.random() * 2); // 0: Horiz, 1: Vert
+                let row = Math.floor(Math.random() * gridSize);
+                let col = Math.floor(Math.random() * gridSize);
+                
+                if (canPlace(matrix, word, row, col, dir)) {
+                    for (let i = 0; i < word.length; i++) {
+                        if (dir === 0) matrix[row][col + i] = word[i];
+                        else matrix[row + i][col] = word[i];
+                    }
+                    placed = true;
+                }
+            }
+        });
+
+        // Fill blanks
+        for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
+                if (matrix[r][c] === '') {
+                    matrix[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                }
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.innerText = matrix[r][c];
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+                cell.addEventListener('mousedown', startSelection);
+                cell.addEventListener('mouseover', updateSelection);
+                cell.addEventListener('mouseup', endSelection);
+                gridElement.appendChild(cell);
+            }
+        }
+    }
+
+    function canPlace(matrix, word, r, c, dir) {
+        if (dir === 0 && c + word.length > gridSize) return false;
+        if (dir === 1 && r + word.length > gridSize) return false;
+        for (let i = 0; i < word.length; i++) {
+            let char = (dir === 0) ? matrix[r][c + i] : matrix[r + i][c];
+            if (char !== '' && char !== word[i]) return false;
+        }
+        return true;
+    }
+
+    function renderWordList() {
+        const listDiv = document.getElementById('word-list');
+        listDiv.innerHTML = '';
+        wordsToFind.forEach(word => {
+            const div = document.createElement('div');
+            div.className = 'word-item';
+            div.id = 'word-' + word;
+            div.innerText = word;
+            listDiv.appendChild(div);
+        });
+    }
+
+    function startSelection(e) {
+        isSelecting = true;
+        selectedCells = [e.target];
+        e.target.classList.add('selected');
+    }
+
+    function updateSelection(e) {
+        if (!isSelecting) return;
+        if (!selectedCells.includes(e.target)) {
+            selectedCells.push(e.target);
+            e.target.classList.add('selected');
+        }
+    }
+
+    function endSelection() {
+        isSelecting = false;
+        const selectedWord = selectedCells.map(c => c.innerText).join('');
+        const reversedWord = selectedWord.split('').reverse().join('');
+
+        if (wordsToFind.includes(selectedWord) && !foundWords.includes(selectedWord)) {
+            markFound(selectedWord);
+        } else if (wordsToFind.includes(reversedWord) && !foundWords.includes(reversedWord)) {
+            markFound(reversedWord);
+        }
+
+        selectedCells.forEach(c => c.classList.remove('selected'));
+        selectedCells = [];
+        
+        if (foundWords.length === wordsToFind.length) {
+            alert("Level Complete!");
+            nextLevel();
+        }
+    }
+
+    function markFound(word) {
+        foundWords.push(word);
+        document.getElementById('word-' + word).classList.add('cut');
+        selectedCells.forEach(c => c.classList.add('found'));
+    }
+
+    function nextLevel() {
+        currentLevel++;
+        initLevel();
+    }
+
+    initLevel();
+</script>
+</body>
+</html>
